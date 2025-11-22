@@ -28,10 +28,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/graipher/bluewalker/host"
+	"github.com/graipher/bluewalker/ruuvi"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"gitlab.com/jtaimisto/bluewalker/host"
-	"gitlab.com/jtaimisto/bluewalker/ruuvi"
 )
 
 var (
@@ -89,6 +89,36 @@ var (
 		Name: "ruuvi_seqno_current",
 		Help: "Ruuvi frame sequence number",
 	}, []string{"device"})
+
+	luminosity = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ruuvi_luminosity_lux",
+		Help: "Ruuvi tag luminosity",
+	}, []string{"device"})
+
+	voc = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ruuvi_voc_percent",
+		Help: "Ruuvi tag VOC index",
+	}, []string{"device"})
+
+	nox = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ruuvi_nox_index",
+		Help: "Ruuvi tag NOX index",
+	}, []string{"device"})
+
+	pm25 = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ruuvi_pm25_ug_m3",
+		Help: "Ruuvi tag PM2.5 concentration in μg/m3",
+	}, []string{"device"})
+
+	co2 = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ruuvi_co2_ppm",
+		Help: "Ruuvi tag CO2 concentration in ppm",
+	}, []string{"device"})
+
+	calibrating = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ruuvi_calibrating",
+		Help: "Ruuvi tag calibration status",
+	}, []string{"device"})
 )
 
 // ttl is the duration after which sensors are forgotten if signal is lost.
@@ -143,6 +173,28 @@ func ObserveRuuvi(o RuuviReading) {
 	if o.SeqnoValid() {
 		seqno.WithLabelValues(addr).Set(float64(o.Seqno))
 	}
+	if o.LuminoValid() {
+		luminosity.WithLabelValues(addr).Set(float64(o.Luminosity))
+	}
+	if o.CO2Valid() {
+		co2.WithLabelValues(addr).Set(float64(o.CO2))
+		if o.Calibrating {
+			calibrating.WithLabelValues(addr).Set(1)
+		} else {
+			calibrating.WithLabelValues(addr).Set(0)
+		}
+
+	}
+	if o.PM2_5Valid() {
+		pm25.WithLabelValues(addr).Set(float64(o.PM2_5))
+	}
+	if o.NOXValid() {
+		nox.WithLabelValues(addr).Set(float64(o.NOX))
+	}
+	if o.VOCValid() {
+		voc.WithLabelValues(addr).Set(float64(o.VOC))
+	}
+
 }
 
 func clearExpired() {
@@ -167,6 +219,12 @@ func clearExpired() {
 			txPower.DeleteLabelValues(addr)
 			moveCount.DeleteLabelValues(addr)
 			seqno.DeleteLabelValues(addr)
+			luminosity.DeleteLabelValues(addr)
+			co2.DeleteLabelValues(addr)
+			calibrating.DeleteLabelValues(addr)
+			pm25.DeleteLabelValues(addr)
+			nox.DeleteLabelValues(addr)
+			voc.DeleteLabelValues(addr)
 
 			delete(deviceLastSeen, addr)
 		}
@@ -184,7 +242,9 @@ type RuuviReading struct {
 func (r RuuviReading) DataFormat() int {
 	if !r.TxPowerValid() && !r.MoveCountValid() && !r.SeqnoValid() {
 		return 3
-	} else {
+	} else if !r.CO2Valid() {
 		return 5
+	} else {
+		return 6
 	}
 }

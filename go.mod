@@ -25,8 +25,8 @@
 module github.com/joneskoo/ruuvi-prometheus
 
 require (
+	github.com/graipher/bluewalker v0.4.0
 	github.com/prometheus/client_golang v1.20.5
-	gitlab.com/jtaimisto/bluewalker v0.3.1
 )
 
 require (
@@ -41,4 +41,4 @@ require (
 	google.golang.org/protobuf v1.35.1 // indirect
 )
 
-go 1.21
+go 1.24
